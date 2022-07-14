@@ -7,7 +7,7 @@ import secrets
 from datetime import datetime
 
 from werkzeug.security import generate_password_hash, check_password_hash
-
+from sqlalchemy.orm import load_only
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -126,13 +126,16 @@ def create_user(data: dict):
     return user, user.user_id
 
 
-def user_rating_setup(user_id):
+def user_rating_setup(user_id:int):
     user_rating = Rating(user_id)
     db.session.add(user_rating)
     db.session.commit()
 
 
-#  login functions
+def user_rating_update(user_id:int, value:int):
+    db.session.query(Rating).filter(Rating.user_id==user_id).update({Rating.rating_value: Rating.rating_value + value})
+    db.session.commit()
+
 
 def get_user_id_by_email(email):
     user_id = db.session.query(Users.user_id).filter(Users.email == email).first()
@@ -182,12 +185,16 @@ def get_token(data: dict):
             else:
                 token = generate_token(user_id=user_id, device_name=device_name)
             return token[0]
+        else:
+            raise ValueError("Invalid password.")
     else:
-        print('User does not exists')
+        raise ValueError('User does not exists or email incorrect.')
 
 
 def user_id_by_token(token):
     user_id = db.session.query(LoginSessions.user_id).filter(LoginSessions.token == token).first()
+    if not user_id:
+        return None
     return user_id[0]
 
 
@@ -213,16 +220,19 @@ def get_all_users(fields=None):
     return users
 
 
+def get_user_info(user_id):
+    fields=['first_name','last_name','email']
+    personal_info = db.session.query(Users).filter(Users.user_id==user_id).options(load_only(*fields)).first().get_info(fields)
+    return personal_info
+
+
 def update_user_info(token: str, data: dict):
-    # cols = [*data]
-    # vals = list(data.values())
     user_id = user_id_by_token(token)
     first_name = data['first_name']
     last_name = data['last_name']
-    email = data['email'].lower()
     db.session.query(Users).filter(Users.user_id == user_id).update(
         {'first_name': first_name,
-         'last_name': last_name,
-         'email': email}
+         'last_name': last_name
+         }
     )
     db.session.commit()

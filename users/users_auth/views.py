@@ -1,11 +1,10 @@
 import os
 import sys
+
 sys.path.append(os.getcwd())
 from flask import request
-from users.models import get_token, user_rating_setup, create_user
-from psycopg2.errorcodes import UNIQUE_VIOLATION
-from psycopg2 import errors
-import psycopg2
+from users.models import get_token, user_rating_setup, create_user, user_id_by_token
+
 
 def init_views(app):
     @app.route("/", methods=['GET'])
@@ -15,8 +14,11 @@ def init_views(app):
     @app.route("/login", methods=['POST'])
     async def login():
         data = request.json
-        token = get_token(data)
-        return token
+        try:
+            token = get_token(data)
+        except ValueError as e:
+            return {'error': str(e)}, 400
+        return {'token': token}
 
     @app.route("/registration", methods=['POST'])
     async def registration():
@@ -32,8 +34,10 @@ def init_views(app):
         user_rating_setup(user_id)
         return f'Created user with id: {user_id} with data :{data} '
 
-
-
     # TODO: reset password with email
 
-    # TODO token check here ?
+    @app.route('/get_user_id', methods = ['GET'])
+    def get_user_id_by_token():
+        token = request.json['token']
+        user_id = user_id_by_token(token)
+        return {'user_id':user_id}
