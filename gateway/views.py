@@ -1,45 +1,34 @@
-import json
-
-from gateway.__init__ import application as app
-from flask import request
-from gateway.models import creat_user, get_token, enable_token, get_all_users
+from flask import request, Response, abort
+import requests
 
 
-@app.route("/")
-def hello_world():
-    return "Hello, my name is GATEWAY! I`m working!"
+def init_views(app, **kwargs):
+    users_auth_url = kwargs['users_auth_url']
+    users_url = kwargs['users_utl']
+    books_url = kwargs['books_url']
 
+    @app.route('/', methods=['GET'])
+    def health_checker():
+        return 'Gateway work fine.'
 
-@app.route("/user/login", methods=['POST'])
-def login():
-    data = request.json
-    token = get_token(data)
-    return f'User login with token: f{token}'
+    @app.route('/registration/', methods=['POST'])
+    def signup():
+        json_fields = ['first_name', 'last_name', 'email', 'password']
+        data = request.json
+        for j_f in json_fields:
+            if j_f not in data:
+                return {'error': f"json doesn`t exists {j_f}"}, 400
 
+        res = requests.post(users_auth_url + '/registration', json=data)
+        return res.json(), res.status_code
 
-@app.route("/user/registration", methods=['POST'])
-def registration():
-    data = request.json
-    creat_user(data)
-    return f'Created user with data :{data}'
+    @app.route('/login', methode=['POST'])
+    async def login():
+        json_fields = ['email', 'password']
+        data = request.json
+        for j_f in json_fields:
+            if j_f not in data:
+                return {'error': f"json doesn`t exists {j_f}"}, 400
 
-
-@app.route("/user/logout", methods=['POST'])
-def logout():
-    token = request.json['token']
-    enable_token(token)
-    return f'Logout for user with token: {token}'
-
-
-@app.route("/users", methods=['GET'])
-def users():
-    return json.dumps(get_all_users())
-
-
-@app.route("/users/edit_profile", methods=['PUT'])
-def edit_info():
-    pass
-    # data = request.json # get only updated rows
-    # token = data.pop('token')
-    # res = update_info(token, data)
-    # return json.dumps({'answer': res})
+        res = requests.post(users_auth_url + '/login', json=data)
+        return res.json(), res.status_code
